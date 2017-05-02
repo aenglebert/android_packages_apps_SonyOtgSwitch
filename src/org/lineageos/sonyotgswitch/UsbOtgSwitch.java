@@ -20,8 +20,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.drawable.Icon;
-import android.hardware.usb.UsbManager;
-import android.net.ConnectivityManager;
 import android.provider.Settings;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
@@ -35,7 +33,17 @@ import java.io.PrintWriter;
 import android.util.Log;
 
 public class UsbOtgSwitch extends TileService {
+    protected static final String OTG_SWITCH_ENABLED = "service.usb.otg.switch";
     private static boolean mUsbOtg = false;
+
+    protected static void setSystemProperty(String key, String value) {
+	    try {
+		    Class.forName("android.os.SystemProperties").getMethod("set", String.class, String.class).invoke(null, key, value);
+	    } catch (Exception e) {
+		    e.printStackTrace();
+	    }
+    }
+
 
     @Override
     public void onStartListening() {
@@ -53,69 +61,18 @@ public class UsbOtgSwitch extends TileService {
         super.onClick();
 	if(mUsbOtg)
 	{
-		disableUsbOtg();
+		mUsbOtg = false;
+		setSystemProperty(OTG_SWITCH_ENABLED, "false");
 	        Log.d("OtgSwitch", "disable");
 	}
 	else 
 	{
-		enableUsbOtg();
+		mUsbOtg = true;
+		setSystemProperty(OTG_SWITCH_ENABLED, "true");
 	        Log.d("OtgSwitch", "enable");
 	}
         refresh();
     }
-
-    /* enableUsbOtg()
-     * 
-     * Enable usb otg by setting /sys/module/qpnp_smbcharger_extension/parameters/force_id_polling_on to 1,
-     * this force usb otg detection to stay enabled once activated.
-     * Then start the dection by setting /sys/module/qpnp_smbcharger_extension/parameters/start_id_polling to 1.
-     */
-    public static void enableUsbOtg() {
-	    PrintWriter startWriter = null;
-	    PrintWriter forceWriter = null;
-	    try {
-		    FileOutputStream forcePollingOutStream = new FileOutputStream("/sys/module/qpnp_smbcharger_extension/parameters/force_id_polling");
-		    FileOutputStream startPollingOutStream = new FileOutputStream("/sys/module/qpnp_smbcharger_extension/parameters/start_id_polling");
-		    forceWriter = new PrintWriter(new OutputStreamWriter(forcePollingOutStream));
-		    startWriter = new PrintWriter(new OutputStreamWriter(startPollingOutStream));
-		    forceWriter.println("1");
-		    startWriter.println("1");
-    	    } catch (Exception e) {
-	    } finally {
-		    if (forceWriter != null)
-			    forceWriter.close();
-		    if (startWriter != null)
-			    startWriter.close();
-	    }
-	    mUsbOtg = true;
-        }
-
-
-    /* disableUsbOtg()
-     * 
-     * Disable usb otg by setting /sys/module/qpnp_smbcharger_extension/parameters/force_id_polling to 0,
-     * this force usb otg detection disable once the timeout is done.
-     * Also set the the timeout to 1ms for a faster disable
-     */
-    public static void disableUsbOtg() {
-	    PrintWriter timeoutWriter = null;
-	    PrintWriter forceWriter = null;
-	    try {
-		    FileOutputStream timeoutOutStream = new FileOutputStream("/sys/module/qpnp_smbcharger_extension/parameters/id_polling_timeout");
-		    FileOutputStream forcePollingOutStream = new FileOutputStream("/sys/module/qpnp_smbcharger_extension/parameters/force_id_polling");
-		    timeoutWriter = new PrintWriter(new OutputStreamWriter(timeoutOutStream));
-		    forceWriter = new PrintWriter(new OutputStreamWriter(forcePollingOutStream));
-		    timeoutWriter.println("1");
-		    forceWriter.println("0");
-    	    } catch (Exception e) {
-	    } finally {
-		    if (timeoutWriter != null)
-			    timeoutWriter.close();
-		    if (forceWriter != null)
-			    forceWriter.close();
-	    }
-	    mUsbOtg = false;
-        }
 
 
     private void refresh() {
